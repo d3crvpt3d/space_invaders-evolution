@@ -61,6 +61,31 @@ def load_checkpoint(filename, cdorf):
         cdorf[i].model.load_dict_state(checkpoint['model_state_dict'])
         cdorf[i].mutate(0.01, 0.001)
 
+def create_next_generation(population, mut_rate):
+    population.sort(key=lambda agent: agent.score, reverse=True)
+    best_10 = population[:10]
+    
+    new_population = []
+    for _ in range(100):
+        new_agent = Agent()
+        
+        # Crossover: Parameter-weise mischen
+        with torch.no_grad():
+            new_params = list(new_agent.model.parameters())
+            for param_idx, param in enumerate(new_params):
+                # Sammle entsprechende Parameter von allen parents
+                parent_params = [list(parent.model.parameters())[param_idx] for parent in best_10]
+                
+                # Mische nur Parameter mit gleicher Shape
+                for parent_param in parent_params:
+                    mask = torch.rand_like(param) < 0.1  # 10% chance pro parent
+                    param.data = torch.where(mask, parent_param.data, param.data)
+        
+        new_agent.mutate(mut_rate)
+        new_population.append(new_agent)
+    
+    return new_population
+
 gym.register_envs(ale_py)
 
 env = gym.make("ALE/SpaceInvaders-v5", obs_type='grayscale')#render_mode="human"
@@ -106,45 +131,10 @@ while True:#each iteration
     best_10 = dorf[:10]
     dorf = dorf[:10]
 
+    dorf = create_next_generation(dorf, 0.1)
     #reset score
     for cagent in dorf:
         cagent.score = 0.0
-
-    for _ in range(90):
-        
-        newAgent = Agent()
-
-        with torch.no_grad():
-            for param in newAgent.model.parameters():
-                combined_param = torch.zeros_like(param)
-                for parent in best_10:
-                    parent_param = list(parent.model.parameters())[list(newAgent.model.parameters()).index(param)]                    
-                    mask = torch.rand_like(param) < 0.1
-                    combined_param = torch.where(mask, parent_param, combined_param)
-                param.copy_(combined_param)
-
-        newAgent.mutate(mutation_rate)
-        dorf.append(newAgent)
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
