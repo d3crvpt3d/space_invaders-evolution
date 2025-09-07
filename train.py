@@ -14,7 +14,6 @@ class Agent(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.flatten = nn.Flatten()
         self.model = nn.Sequential(
             nn.Linear( 210*160, 128),
             nn.ReLU(),
@@ -25,7 +24,7 @@ class Agent(nn.Module):
 
     def forward(self, x):
         x = torch.tensor(x, dtype=torch.float32) / 255.0
-        x = self.flatten(x)
+        x = x.flatten()
         output = self.model(x).argmax().item()
         return output
 
@@ -45,7 +44,7 @@ def save_checkpoint(dorf1, generation, suffix):
     torch.save({
         'generation': generation,
         'model_state_dict': agent.state_dict()
-        }, 'it'+str(generation)+'_score'+str(dorf1[0].score)+suffix)
+        }, 'models/it'+str(generation)+'_score'+str(dorf1[0].score)+suffix)
 
 def load_checkpoint(filename, cdorf):
     global iteration
@@ -64,7 +63,7 @@ def load_checkpoint(filename, cdorf):
 
 gym.register_envs(ale_py)
 
-env = gym.make("ALE/SpaceInvaders-v5", obs_type="grayscale")#render_mode="human"
+env = gym.make("ALE/SpaceInvaders-v5", obs_type='grayscale')#render_mode="human"
 
 iteration = 0
 #load if checkpoint is given
@@ -77,26 +76,29 @@ else:
 #training
 while True:#each iteration
     iteration = iteration + 1
+    
+    print(f"Generation: {iteration}")
+    
     #each agent
     for cAgent in dorf:
 
         obs, info = env.reset()
         end = False
-        while not end:
-            print(info) #debug
-            #exit(1) #debug
+        for _ in range(100):
             action = cAgent.forward(obs)
             obs, reward, terminated, truncated, info = env.step(action)
             
             cAgent.score = cAgent.score + float(reward)
 
-            end = terminated or truncated
+            if terminated or truncated:
+                continue
 
     #save_checkpoint
     if (iteration % 50) == 0:
         save_checkpoint(dorf,
                         iteration,
                         '_spaceInvaders.model')
+        print(f"Saved Evolution {iteration}")
 
     #breed and mutate
     dorf.sort(key=lambda x: x.score) #get elite in top 10
