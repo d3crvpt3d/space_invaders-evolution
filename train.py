@@ -4,16 +4,16 @@ from torch import nn
 import torch
 import sys
 
-mutation_spread = 0.125
+mutation_spread = 0.01
 mutation_rate = 0.1
 num_agents = 40
+per_gen_steps = 200
 
 #create neural network
 class Agent(nn.Module):
 
-    score = 0.0
-
     def __init__(self):
+        self.score = 0.0
         super().__init__()
         self.model = nn.Sequential(
             nn.Linear( 210*160, 64),
@@ -29,7 +29,7 @@ class Agent(nn.Module):
         output = self.model(x).argmax().item()
         return output
 
-    def mutate(self, mutation_rate) :
+    def mutate(self) :
         with torch.no_grad():
             for param in self.model.parameters():
                 mask = torch.rand_like(param) < mutation_rate # % of weights
@@ -55,36 +55,51 @@ def load_checkpoint(filename, cdorf):
 
     #load first without mutation
     cdorf.append(Agent())
-    cdorf[0].model.load_dict_state(checkpoint['model_state_dict'])
+    cdorf[0].model.load_state_dict(checkpoint['model_state_dict'])
     
-    for i in range(num_agents - 1):
+    for i in range(1, num_agents - 1):
         cdorf.append(Agent())
-        cdorf[i].model.load_dict_state(checkpoint['model_state_dict'])
-        cdorf[i].mutate(0.1, 0.001)
+        cdorf[i].model.load_state_dict(checkpoint['model_state_dict'])
+        cdorf[i].mutate()
 
-def create_next_generation(population, mut_rate):
+def create_next_generation(population: list[Agent], num_elite: int) -> list[Agent]:
+    # 1. Sortiere die Population nach Score in absteigender Reihenfolge
     population.sort(key=lambda agent: agent.score, reverse=True)
-    best_10 = population[:10]
-    
-    new_population = []
-    for _ in range(num_agents):
-        new_agent = Agent()
+
+    # 2. Wähle die Elite aus (die Champions)
+    elite = population[:num_elite]
+
+    # 3. Die neue Population beginnt mit den unveränderten Champions
+    new_population = elite[:] # Wichtig: Kopie der Liste, nicht nur Referenz
+
+    # 4. Bestimme, wie viele neue Agenten (Kinder) erzeugt werden müssen
+    num_children_to_create = len(population) - num_elite
+
+    # 5. Erzeuge den Rest der Population durch Crossover und Mutation
+    for _ in range(num_children_to_create):
+        # Erstelle einen neuen, leeren Agenten
+        child_agent = Agent()
         
-        # Crossover: Parameter-weise mischen
+        # Führe das Crossover durch (Parameter-Mittelung der Elite)
         with torch.no_grad():
-            new_params = list(new_agent.model.parameters())
-            for param_idx, param in enumerate(new_params):
-                # Sammle entsprechende Parameter von allen parents
-                parent_params = [list(parent.model.parameters())[param_idx] for parent in best_10]
+            # Gehe durch jeden Parametersatz (Gewichte und Biases)
+            for i, child_param in enumerate(child_agent.model.parameters()):
+                # Sammle die entsprechenden Parameter von allen Elite-Eltern
+                parent_params = [list(parent.model.parameters())[i].data for parent in elite]
                 
-                # Mische nur Parameter mit gleicher Shape
-                for parent_param in parent_params:
-                    mask = torch.rand_like(param) < 0.1  # 10% chance pro parent
-                    param.data = torch.where(mask, parent_param.data, param.data)
+                # Bilde den Durchschnitt der Elterngewichte
+                stacked_params = torch.stack(parent_params)
+                average_params = torch.mean(stacked_params, dim=0)
+                
+                # Weise dem Kind die durchschnittlichen Gewichte zu
+                child_param.data.copy_(average_params)
+
+        # 6. Mutiere das neu erstellte Kind, um Diversität zu schaffen
+        child_agent.mutate()
         
-        new_agent.mutate(mut_rate)
-        new_population.append(new_agent)
-    
+        # Füge das Kind zur neuen Population hinzu
+        new_population.append(child_agent)
+
     return new_population
 
 gym.register_envs(ale_py)
@@ -107,15 +122,14 @@ while True:#each iteration
     for cAgent in dorf:
 
         obs, info = env.reset()
-        end = False
-        for _ in range(num_agents):
+        for _ in range(per_gen_steps):
             action = cAgent.forward(obs)
             obs, reward, terminated, truncated, info = env.step(action)
             
             cAgent.score = cAgent.score + float(reward)
 
             if terminated or truncated:
-                continue
+                break
 
     #save_checkpoint
     if (iteration % 10) == 0:
@@ -124,15 +138,10 @@ while True:#each iteration
                         '_spaceInvaders.model')
         print(f"Saved Evolution {iteration}")
 
-    #breed and mutate
-    dorf.sort(key=lambda x: x.score, reverse=True) #get elite in top 10
-
-    best_10 = dorf[:10]
-    dorf = dorf[:10]
-
-    dorf = create_next_generation(dorf, 0.1)
-    
     print(f"Generation: {iteration}, Score: {dorf[0].score}")
+
+    #breed and mutate
+    dorf = create_next_generation(dorf, 2)
     
     #reset score
     for cagent in dorf:
