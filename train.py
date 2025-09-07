@@ -10,7 +10,7 @@ mutation_rate = 0.1
 #create neural network
 class Agent(nn.Module):
 
-    score: int = 0
+    score = 0.0
 
     def __init__(self):
         super().__init__()
@@ -24,6 +24,7 @@ class Agent(nn.Module):
         )
 
     def forward(self, x):
+        x = torch.tensor(x, dtype=torch.float32) / 255.0
         x = self.flatten(x)
         output = self.model(x).argmax().item()
         return output
@@ -35,18 +36,22 @@ class Agent(nn.Module):
                 noise = torch.randn_like(param) * mutation_spread # impact of mutation
                 param[mask] += noise[mask]
 
-dorf = []
+dorf: list[Agent] = []
 
 #save/load checkpoints
 def save_checkpoint(dorf1, generation, suffix):
     dorf1.sort(lambda x: x.score)
     agent: Agent = dorf1[0]
     torch.save({
+        'generation': generation,
         'model_state_dict': agent.state_dict()
         }, 'it'+str(generation)+'_score'+str(dorf1[0].score)+suffix)
 
 def load_checkpoint(filename, cdorf):
+    global iteration
     checkpoint = torch.load(filename)
+
+    iteration = int(checkpoint['generation'])
 
     #load first without mutation
     cdorf.append(Agent())
@@ -61,6 +66,7 @@ gym.register_envs(ale_py)
 
 env = gym.make("ALE/SpaceInvaders-v5", obs_type="grayscale")#render_mode="human"
 
+iteration = 0
 #load if checkpoint is given
 if len(sys.argv) == 2:
     load_checkpoint(sys.argv[1], dorf)
@@ -69,7 +75,6 @@ else:
         dorf.append(Agent())
 
 #training
-iteration = 0
 while True:#each iteration
     iteration = iteration + 1
     #each agent
@@ -83,7 +88,7 @@ while True:#each iteration
             action = cAgent.forward(obs)
             obs, reward, terminated, truncated, info = env.step(action)
             
-            cAgent.score = cAgent.score + reward
+            cAgent.score = cAgent.score + float(reward)
 
             end = terminated or truncated
 
@@ -94,8 +99,32 @@ while True:#each iteration
                         '_spaceInvaders.model')
 
     #breed and mutate
-    #TODO
+    dorf.sort(key=lambda x: x.score) #get elite in top 10
 
+    best_10 = dorf[:10]
+    dorf = dorf[:10]
+
+    #reset score
+    for cagent in dorf:
+        cagent.score = 0.0
+
+    for _ in range(90):
+        
+        newAgent = Agent()
+
+        with torch.no_grad():
+            for param in newAgent.model.parameters():
+                combined_param = torch.zeros_like(param)
+                for parent in best_10:
+                    parent_param = list(parent.model.parameters())[list(newAgent.model.parameters()).index(param)]                    
+                    mask = torch.rand_like(param) < 0.1
+                    combined_param = torch.where(mask, parent_param, combined_param)
+                param.copy_(combined_param)
+
+        newAgent.mutate(mutation_rate)
+        dorf.append(newAgent)
+
+    
 
 
 
