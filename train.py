@@ -45,7 +45,7 @@ def save_checkpoint(dorf1, generation, suffix):
     torch.save({
         'generation': generation,
         'model_state_dict': agent.state_dict()
-        }, 'models/it'+str(generation)+'_score'+str(dorf1[0].score)+suffix)
+        }, 'models/it'+str(generation)+'_score'+str(dorf1[0].score)+str(torch.rand())+suffix)
 
 def load_checkpoint(filename, cdorf):
     global iteration
