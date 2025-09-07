@@ -55,11 +55,11 @@ def load_checkpoint(filename, cdorf):
 
     #load first without mutation
     cdorf.append(Agent())
-    cdorf[0].model.load_state_dict(checkpoint['model_state_dict'])
+    cdorf[0].load_state_dict(checkpoint['model_state_dict'])
     
     for i in range(1, num_agents - 1):
         cdorf.append(Agent())
-        cdorf[i].model.load_state_dict(checkpoint['model_state_dict'])
+        cdorf[i].load_state_dict(checkpoint['model_state_dict'])
         cdorf[i].mutate()
 
 def create_next_generation(population: list[Agent], num_elite: int) -> list[Agent]:
