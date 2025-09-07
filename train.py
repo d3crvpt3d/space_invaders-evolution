@@ -6,7 +6,7 @@ import sys
 
 mutation_spread = 0.125
 mutation_rate = 0.1
-num_agents = 20
+num_agents = 40
 
 #create neural network
 class Agent(nn.Module):
@@ -16,11 +16,11 @@ class Agent(nn.Module):
     def __init__(self):
         super().__init__()
         self.model = nn.Sequential(
-            nn.Linear( 210*160, 128),
+            nn.Linear( 210*160, 64),
             nn.ReLU(),
-            nn.Linear(128, 64),
+            nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Linear(64, 6),
+            nn.Linear(32, 6),
         )
 
     def forward(self, x):
@@ -40,7 +40,7 @@ dorf: list[Agent] = []
 
 #save/load checkpoints
 def save_checkpoint(dorf1, generation, suffix):
-    dorf1.sort(lambda x: x.score)
+    dorf1.sort(key=lambda x: x.score, reverse=True)
     agent: Agent = dorf1[0]
     torch.save({
         'generation': generation,
@@ -101,10 +101,8 @@ else:
 
 #training
 while True:#each iteration
-    iteration = iteration + 1
-    
-    print(f"Generation: {iteration}")
-    
+
+    iteration = iteration + 1 #skip first save
     #each agent
     for cAgent in dorf:
 
@@ -127,15 +125,16 @@ while True:#each iteration
         print(f"Saved Evolution {iteration}")
 
     #breed and mutate
-    dorf.sort(key=lambda x: x.score) #get elite in top 10
+    dorf.sort(key=lambda x: x.score, reverse=True) #get elite in top 10
 
     best_10 = dorf[:10]
     dorf = dorf[:10]
 
     dorf = create_next_generation(dorf, 0.1)
+    
+    print(f"Generation: {iteration}, Score: {dorf[0].score}")
+    
     #reset score
     for cagent in dorf:
         cagent.score = 0.0
-
-
-
+    
