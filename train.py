@@ -6,6 +6,7 @@ import sys
 
 mutation_spread = 0.125
 mutation_rate = 0.1
+num_agents = 20
 
 #create neural network
 class Agent(nn.Module):
@@ -56,17 +57,17 @@ def load_checkpoint(filename, cdorf):
     cdorf.append(Agent())
     cdorf[0].model.load_dict_state(checkpoint['model_state_dict'])
     
-    for i in range(99):
+    for i in range(num_agents - 1):
         cdorf.append(Agent())
         cdorf[i].model.load_dict_state(checkpoint['model_state_dict'])
-        cdorf[i].mutate(0.01, 0.001)
+        cdorf[i].mutate(0.1, 0.001)
 
 def create_next_generation(population, mut_rate):
     population.sort(key=lambda agent: agent.score, reverse=True)
     best_10 = population[:10]
     
     new_population = []
-    for _ in range(100):
+    for _ in range(num_agents):
         new_agent = Agent()
         
         # Crossover: Parameter-weise mischen
@@ -95,7 +96,7 @@ iteration = 0
 if len(sys.argv) == 2:
     load_checkpoint(sys.argv[1], dorf)
 else:
-    for _ in range(100):
+    for _ in range(num_agents):
         dorf.append(Agent())
 
 #training
@@ -109,7 +110,7 @@ while True:#each iteration
 
         obs, info = env.reset()
         end = False
-        for _ in range(100):
+        for _ in range(num_agents):
             action = cAgent.forward(obs)
             obs, reward, terminated, truncated, info = env.step(action)
             
@@ -119,7 +120,7 @@ while True:#each iteration
                 continue
 
     #save_checkpoint
-    if (iteration % 50) == 0:
+    if (iteration % 10) == 0:
         save_checkpoint(dorf,
                         iteration,
                         '_spaceInvaders.model')
