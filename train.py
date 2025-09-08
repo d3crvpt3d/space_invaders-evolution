@@ -51,14 +51,17 @@ def save_checkpoint(best, generation, suffix):
     per_gen_steps *= 1.1
     torch.save({
         'generation': generation,
+        'per_gen_steps': per_gen_steps,
         'model_state_dict': best.state_dict()
         }, 'models/it'+str(generation)+'_score'+str(best.score)+str(seed)+suffix)
 
 def load_checkpoint(filename, cdorf):
     global iteration
+    global per_gen_steps
     checkpoint = torch.load(filename)
 
     iteration = int(checkpoint['generation'])
+    per_gen_steps = int(checkpoint['per_gen_steps'])
 
     #load first without mutation
     cdorf.append(Agent())
