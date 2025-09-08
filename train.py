@@ -8,7 +8,7 @@ mutation_spread = 0.01
 mutation_rate = 0.1
 num_agents = 32
 per_gen_steps = 100
-seed = torch.randint(1,9999999, (1,))
+seed = torch.randint(1,9999999, (1,)).item()
 
 #create neural network
 class Agent(nn.Module):
