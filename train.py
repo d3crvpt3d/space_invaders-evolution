@@ -112,8 +112,8 @@ while True:#each iteration
     #each agent
     for cAgent in dorf:
 
-        obs, info = env.reset()
-        for _ in range(per_gen_steps):
+        obs, info = env.reset(seed=42)
+        for _ in range(int(per_gen_steps)):
             action = cAgent.forward(obs)
             obs, reward, terminated, truncated, info = env.step(action)
             
