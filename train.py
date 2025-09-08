@@ -63,48 +63,37 @@ def load_checkpoint(filename, cdorf):
     cdorf.append(Agent())
     cdorf[0].load_state_dict(checkpoint['model_state_dict'])
     
-    for i in range(1, num_agents - 1):
+    for i in range(1, num_agents):
         cdorf.append(Agent())
         cdorf[i].load_state_dict(checkpoint['model_state_dict'])
         cdorf[i].mutate()
 
-def create_next_generation(population: list[Agent], num_elite: int) -> list[Agent]:
-    # 1. Sortiere die Population nach Score in absteigender Reihenfolge
+def create_next_generation(population) -> list[Agent]:
     population.sort(key=lambda agent: agent.score, reverse=True)
 
-    # 2. Wähle die Elite aus (die Champions)
-    elite = population[:num_elite]
+    new_population: list[Agent] = []
 
-    # 3. Die neue Population beginnt mit den unveränderten Champions
-    new_population = elite[:] # Wichtig: Kopie der Liste, nicht nur Referenz
+    #copy best
+    best = Agent()
+    with torch.no_grad():
+        for i, param in enumerate(best.model.parameters()):
+            parent_param = list(dorf[0].model.parameters())[i].data
+            param.data.copy_(parent_param)
 
-    # 4. Bestimme, wie viele neue Agenten (Kinder) erzeugt werden müssen
-    num_children_to_create = len(population) - num_elite
+    new_population.append(best)
 
-    # 5. Erzeuge den Rest der Population durch Crossover und Mutation
-    for _ in range(num_children_to_create):
-        # Erstelle einen neuen, leeren Agenten
-        child_agent = Agent()
-        
-        # Führe das Crossover durch (Parameter-Mittelung der Elite)
-        with torch.no_grad():
-            # Gehe durch jeden Parametersatz (Gewichte und Biases)
+    #generate others based on best
+    with torch.no_grad():
+        for _ in range(1,100):
+
+            child_agent = Agent()
             for i, child_param in enumerate(child_agent.model.parameters()):
-                # Sammle die entsprechenden Parameter von allen Elite-Eltern
-                parent_params = [list(parent.model.parameters())[i].data for parent in elite]
-                
-                # Bilde den Durchschnitt der Elterngewichte
-                stacked_params = torch.stack(parent_params)
-                average_params = torch.mean(stacked_params, dim=0)
-                
-                # Weise dem Kind die durchschnittlichen Gewichte zu
-                child_param.data.copy_(average_params)
+                parent_param = list(best.model.parameters())[i].data
+                child_param.data.copy_(parent_param)
 
-        # 6. Mutiere das neu erstellte Kind, um Diversität zu schaffen
-        child_agent.mutate()
-        
-        # Füge das Kind zur neuen Population hinzu
-        new_population.append(child_agent)
+            child_agent.mutate()
+
+            new_population.append(child_agent)
 
     return new_population
 
@@ -147,7 +136,7 @@ while True:#each iteration
     print(f"Generation: {iteration}, Score: {dorf[0].score}")
 
     #breed and mutate
-    dorf = create_next_generation(dorf, 2)
+    dorf = create_next_generation(dorf)
     
     #reset score
     for cagent in dorf:
