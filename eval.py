@@ -16,16 +16,16 @@ class Agent(nn.Module):
             nn.Conv2d(5, 1, kernel_size=4),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(31416, 64),
+            nn.Linear(31416, 128),
             nn.ReLU(),
-            nn.Linear(64, 32),
+            nn.Linear(128, 32),
             nn.ReLU(),
             nn.Linear(32, 6)
         )
 
     def forward(self, x):
         x = torch.tensor(x, dtype=torch.float32) / 255.0
-        x = x.unsqueeze(0)
+        x = x.unsqueeze(0).unsqueeze(0)
         output = self.model(x).argmax().item()
         return output
 
