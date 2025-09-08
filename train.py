@@ -6,8 +6,9 @@ import sys
 
 mutation_spread = 0.01
 mutation_rate = 0.1
-num_agents = 40
-per_gen_steps = 200
+num_agents = 32
+per_gen_steps = 100
+seed = torch.randint(1,9999999, (1,))
 
 #create neural network
 class Agent(nn.Module):
@@ -16,16 +17,21 @@ class Agent(nn.Module):
         self.score = 0.0
         super().__init__()
         self.model = nn.Sequential(
-            nn.Linear( 210*160, 64),
+            nn.Conv2d(1, 5, kernel_size=4),
+            nn.ReLU(),
+            nn.Conv2d(5, 1, kernel_size=4),
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(31416, 64),
             nn.ReLU(),
             nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Linear(32, 6),
+            nn.Linear(32, 6)
         )
 
     def forward(self, x):
         x = torch.tensor(x, dtype=torch.float32) / 255.0
-        x = x.flatten()
+        x = x.unsqueeze(0)
         output = self.model(x).argmax().item()
         return output
 
@@ -45,7 +51,7 @@ def save_checkpoint(dorf1, generation, suffix):
     torch.save({
         'generation': generation,
         'model_state_dict': agent.state_dict()
-        }, 'models/it'+str(generation)+'_score'+str(dorf1[0].score)+str(torch.rand())+suffix)
+        }, 'models/it'+str(generation)+'_score'+str(dorf1[0].score)+str(seed)+suffix)
 
 def load_checkpoint(filename, cdorf):
     global iteration
