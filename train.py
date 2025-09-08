@@ -3,9 +3,10 @@ import ale_py
 from torch import nn
 import torch
 import sys
+from copy import deepcopy
 
-mutation_spread = 0.01
-mutation_rate = 0.1
+mutation_spread = 0.1
+mutation_rate = 0.3
 num_agents = 32
 per_gen_steps = 100
 seed = torch.randint(1,9999999, (1,)).item()
@@ -22,9 +23,9 @@ class Agent(nn.Module):
             nn.Conv2d(5, 1, kernel_size=4),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(31416, 64),
+            nn.Linear(31416, 128),
             nn.ReLU(),
-            nn.Linear(64, 32),
+            nn.Linear(128, 32),
             nn.ReLU(),
             nn.Linear(32, 6)
         )
@@ -45,13 +46,11 @@ class Agent(nn.Module):
 dorf: list[Agent] = []
 
 #save/load checkpoints
-def save_checkpoint(dorf1, generation, suffix):
-    dorf1.sort(key=lambda x: x.score, reverse=True)
-    agent: Agent = dorf1[0]
+def save_checkpoint(best, generation, suffix):
     torch.save({
         'generation': generation,
-        'model_state_dict': agent.state_dict()
-        }, 'models/it'+str(generation)+'_score'+str(dorf1[0].score)+str(seed)+suffix)
+        'model_state_dict': best.state_dict()
+        }, 'models/it'+str(generation)+'_score'+str(best.score)+str(seed)+suffix)
 
 def load_checkpoint(filename, cdorf):
     global iteration
@@ -74,26 +73,21 @@ def create_next_generation(population) -> list[Agent]:
     new_population: list[Agent] = []
 
     #copy best
-    best = Agent()
-    with torch.no_grad():
-        for i, param in enumerate(best.model.parameters()):
-            parent_param = list(dorf[0].model.parameters())[i].data
-            param.data.copy_(parent_param)
-
+    best = deepcopy(dorf[0])
     new_population.append(best)
 
-    #generate others based on best
+    #generate half based on best
+    for _ in range(num_agents//2 - 1):
+
+        child_agent = deepcopy(dorf[0])
+        child_agent.mutate()
+
+        new_population.append(child_agent)
+
+    #generate second half fresh agents
     with torch.no_grad():
-        for _ in range(1,100):
-
-            child_agent = Agent()
-            for i, child_param in enumerate(child_agent.model.parameters()):
-                parent_param = list(best.model.parameters())[i].data
-                child_param.data.copy_(parent_param)
-
-            child_agent.mutate()
-
-            new_population.append(child_agent)
+        for _ in range(num_agents//2):
+            new_population.append(Agent())
 
     return new_population
 
@@ -126,14 +120,16 @@ while True:#each iteration
             if terminated or truncated:
                 break
 
+    dorf.sort(key=lambda agent: agent.score, reverse=True)
+
+    print(f"Generation: {iteration}, Score: {dorf[0].score}")
+
     #save_checkpoint
     if (iteration % 10) == 0:
-        save_checkpoint(dorf,
+        save_checkpoint(dorf[0],
                         iteration,
                         '_spaceInvaders.model')
         print(f"Saved Evolution {iteration}")
-
-    print(f"Generation: {iteration}, Score: {dorf[0].score}")
 
     #breed and mutate
     dorf = create_next_generation(dorf)
