@@ -32,7 +32,7 @@ class Agent(nn.Module):
 
     def forward(self, x):
         x = torch.tensor(x, dtype=torch.float32) / 255.0
-        x = x.unsqueeze(0)
+        x = x.unsqueeze(0).unsqueeze(0)
         output = self.model(x).argmax().item()
         return output
 
@@ -47,6 +47,8 @@ dorf: list[Agent] = []
 
 #save/load checkpoints
 def save_checkpoint(best, generation, suffix):
+    global per_gen_steps
+    per_gen_steps *= 1.1
     torch.save({
         'generation': generation,
         'model_state_dict': best.state_dict()
