@@ -43,7 +43,7 @@ def load_checkpoint(filename) -> Agent:
 
 agent = load_checkpoint(sys.argv[1])
 
-obs, info = env.reset()
+obs, info = env.reset(seed=42)
 while True:
     action = agent.forward(obs)
-    env.step(action)
+    obs, _, _, _, _ = env.step(action)

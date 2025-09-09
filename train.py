@@ -53,7 +53,7 @@ def save_checkpoint(best, generation, suffix):
         'generation': generation,
         'per_gen_steps': per_gen_steps,
         'model_state_dict': best.state_dict()
-        }, 'models/it'+str(generation)+'_score'+str(int(best.score))+str(seed)+suffix)
+        }, 'models/it'+str(generation)+'_score'+str(int(best.score))+'_'+str(seed)+suffix)
 
 def load_checkpoint(filename, cdorf):
     global iteration
