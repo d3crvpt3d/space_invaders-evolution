@@ -73,26 +73,31 @@ def load_checkpoint(filename, cdorf):
         cdorf[i].mutate()
 
 def create_next_generation(population) -> list[Agent]:
-    population.sort(key=lambda agent: agent.score, reverse=True)
+    #already sorted before
 
     new_population: list[Agent] = []
 
-    #copy best
-    best = deepcopy(dorf[0])
-    new_population.append(best)
+    num_best_all = num_agents // 10 * 9
+    num_best = num_agents // 10
+    per_best = num_best_all // num_best
+    num_new = num_agents - (per_best * num_best)
 
-    #generate half based on best
-    for _ in range(num_agents//2 - 1):
-
-        child_agent = deepcopy(dorf[0])
-        child_agent.mutate()
-
-        new_population.append(child_agent)
-
-    #generate second half fresh agents
     with torch.no_grad():
-        for _ in range(num_agents//2):
-            new_population.append(Agent())
+        #copy best 10%
+        for i in range(num_best):
+            new_population.append(deepcopy(population[i]))
+    
+        #for each "elite" generate to 90%//TODO
+        for best_idx in range(num_best):
+            for _ in range(per_best): 
+                child_agent = deepcopy(population[best_idx])
+                child_agent.mutate()
+    
+                new_population.append(child_agent)
+    
+        #generate ~10-11% fresh agents (fill up)
+        for _ in range(num_new):
+                new_population.append(Agent())
 
     return new_population
 
