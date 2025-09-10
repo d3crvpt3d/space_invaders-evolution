@@ -38,7 +38,8 @@ def load_checkpoint(filename) -> Agent:
 
     #load first without mutation
     agent = Agent()
-    agent.load_state_dict(checkpoint['model_state_dict'])
+    best_model_states = checkpoint.get('models_state_dicts')
+    agent.load_state_dict(best_model_states[0])
     return agent
 
 agent = load_checkpoint(sys.argv[1])

@@ -8,6 +8,7 @@ from copy import deepcopy
 mutation_spread = 0.1
 mutation_rate = 0.3
 num_agents = 32
+num_best = num_agents // 10
 per_gen_steps = 100
 seed = torch.randint(1,9999999, (1,)).item()
 
@@ -46,53 +47,55 @@ class Agent(nn.Module):
 dorf: list[Agent] = []
 
 #save/load checkpoints
-def save_checkpoint(best, generation, suffix):
-    global per_gen_steps
-    per_gen_steps *= 1.1
+def save_checkpoint(best: list[Agent], generation, suffix):
+    
     torch.save({
         'generation': generation,
+        'num_agents': num_agents,
+        'seed': seed,
         'per_gen_steps': per_gen_steps,
-        'model_state_dict': best.state_dict()
-        }, 'models/it'+str(generation)+'_score'+str(int(best.score))+'_'+str(seed)+suffix)
+        'models_state_dicts': [cbest.state_dict() for cbest in best]
+        }, 'models/it'+str(generation)+'_score'+str(int(best[0].score))+'_'+str(seed)+suffix)
 
-def load_checkpoint(filename, cdorf):
-    global iteration
-    global per_gen_steps
+def load_checkpoint(filename) -> tuple:
+
     checkpoint = torch.load(filename)
 
-    iteration = int(checkpoint['generation'])
-    per_gen_steps = int(checkpoint['per_gen_steps'])
+    cgeneration = int(checkpoint['generation'])
+    cnum_agents = int(checkpoint['num_agents'])
+    cseed = int(checkpoint['seed'])
+    cper_gen_steps = int(checkpoint['per_gen_steps'])
+    best_model_states = checkpoint.get('models_state_dicts')
 
-    #load first without mutation
-    cdorf.append(Agent())
-    cdorf[0].load_state_dict(checkpoint['model_state_dict'])
+    #load best without mutation
+    cloaded_agents: list[Agent] = []
+    for state_dict in best_model_states:
+        curr = Agent()
+        curr.load_state_dict(state_dict)
+        cloaded_agents.append(curr)
     
-    for i in range(1, num_agents):
-        cdorf.append(Agent())
-        cdorf[i].load_state_dict(checkpoint['model_state_dict'])
-        cdorf[i].mutate()
+    return cloaded_agents, cnum_agents, num_agents // 10, cgeneration, cseed, cper_gen_steps
+    
 
-def create_next_generation(population) -> list[Agent]:
+def create_next_generation(best: list[Agent]) -> list[Agent]:
     #already sorted before
 
     new_population: list[Agent] = []
 
     num_best_all = num_agents // 10 * 9
-    num_best = num_agents // 10
     per_best = num_best_all // num_best
     num_new = num_agents - (per_best * num_best)
 
     with torch.no_grad():
         #copy best 10%
         for i in range(num_best):
-            new_population.append(deepcopy(population[i]))
+            new_population.append(deepcopy(best[i]))
     
-        #for each "elite" generate to 90%//TODO
+        #for each "elite" generate child agents to 90%
         for best_idx in range(num_best):
             for _ in range(per_best): 
-                child_agent = deepcopy(population[best_idx])
-                child_agent.mutate()
-    
+                child_agent = deepcopy(best[best_idx])
+                child_agent.mutate() 
                 new_population.append(child_agent)
     
         #generate ~10-11% fresh agents (fill up)
@@ -105,10 +108,10 @@ gym.register_envs(ale_py)
 
 env = gym.make("ALE/SpaceInvaders-v5", obs_type='grayscale')#render_mode="human"
 
-iteration = 0
+iteration: int = 0
 #load if checkpoint is given
 if len(sys.argv) == 2:
-    load_checkpoint(sys.argv[1], dorf)
+    dorf, num_agents, num_best, iteration, seed, per_gen_steps = load_checkpoint(sys.argv[1])
 else:
     for _ in range(num_agents):
         dorf.append(Agent())
@@ -136,15 +139,15 @@ while True:#each iteration
 
     #save_checkpoint
     if (iteration % 10) == 0:
-        save_checkpoint(dorf[0],
+        save_checkpoint(dorf[:num_best],
                         iteration,
                         '_spaceInvaders.model')
         print(f"Saved Evolution {iteration}")
+        per_gen_steps *= 1.25
 
     #breed and mutate
-    dorf = create_next_generation(dorf)
+    dorf = create_next_generation(dorf[:num_best])
     
     #reset score
     for cagent in dorf:
         cagent.score = 0.0
-    
