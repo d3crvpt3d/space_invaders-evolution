@@ -1,5 +1,5 @@
 [project]
-name = "ki-test"
+name = "space-invaders_KI"
 version = "0.1.0"
 description = "own implementation of a DNA-like algorithm for atari's space-invaders"
 readme = "README.md"
