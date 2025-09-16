@@ -74,7 +74,7 @@ def load_checkpoint(filename) -> tuple:
         curr.load_state_dict(state_dict)
         cloaded_agents.append(curr)
     
-    return cloaded_agents, cnum_agents, num_agents // 10, cgeneration, cseed, cper_gen_steps
+    return cloaded_agents, cnum_agents, cnum_agents // 10, cgeneration, cseed, cper_gen_steps
     
 
 def create_next_generation(best: list[Agent]) -> list[Agent]:
@@ -144,6 +144,7 @@ while True:#each iteration
                         '_spaceInvaders.model')
         print(f"Saved Evolution {iteration}")
         per_gen_steps *= 1.25
+        mutation_spread = 10.0 / (100.0 + float(iteration)) #decrease spread
 
     #breed and mutate
     dorf = create_next_generation(dorf[:num_best])
